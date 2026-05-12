@@ -1,0 +1,3368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Audia · VoiceBridge</title>
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect x='4' y='20' width='4' height='12' fill='%2339FF14' rx='1.5'/><rect x='11' y='14' width='4' height='18' fill='%2339FF14' rx='1.5'/><rect x='18' y='6' width='4' height='26' fill='%2339FF14' rx='1.5'/><rect x='25' y='14' width='4' height='18' fill='%2339FF14' rx='1.5'/><rect x='32' y='20' width='4' height='12' fill='%2339FF14' rx='1.5'/></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  /* ---------- Tokens ---------- */
+  :root {
+    --bg: #0a0a0a;
+    --bg-elev: #121212;
+    --bg-elev-2: #181818;
+    --border: #1f1f1f;
+    --border-bright: #2a2a2a;
+    --text: #fafafa;
+    --text-dim: #888;
+    --text-faint: #555;
+    --accent: #39FF14;
+    --accent-soft: rgba(57, 255, 20, 0.12);
+    --accent-glow: rgba(57, 255, 20, 0.35);
+    --danger: #ff3b3b;
+    --warn: #ffb547;
+    --display: 'Syne', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background:
+      radial-gradient(circle at 20% 0%, rgba(57, 255, 20, 0.04), transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(57, 255, 20, 0.025), transparent 50%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-weight: 400;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle grain */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    z-index: 1;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/></svg>");
+  }
+
+  /* ---------- Layout ---------- */
+  .shell {
+    display: block;
+    min-height: 100vh;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ---------- Sidebar (drawer) ---------- */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 320px;
+    max-width: 88vw;
+    height: 100vh;
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transform: translateX(-105%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .sidebar-backdrop.show { opacity: 1; pointer-events: all; }
+
+  .sidebar-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: transparent;
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    transition: all 0.15s;
+  }
+  .sidebar-close:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .brand {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    color: var(--accent);
+    filter: drop-shadow(0 0 6px rgba(57, 255, 20, 0.4));
+  }
+  .brand-logo svg {
+    width: 32px;
+    height: 32px;
+  }
+  .brand-logo .bar {
+    transform-origin: center;
+    animation: eq 1.4s ease-in-out infinite;
+  }
+  .brand-logo .bar:nth-child(1) { animation-delay: 0.0s; }
+  .brand-logo .bar:nth-child(2) { animation-delay: 0.15s; }
+  .brand-logo .bar:nth-child(3) { animation-delay: 0.3s; }
+  .brand-logo .bar:nth-child(4) { animation-delay: 0.45s; }
+  .brand-logo .bar:nth-child(5) { animation-delay: 0.6s; }
+  @keyframes eq {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.55); }
+  }
+
+  .brand h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 26px;
+    margin: 0;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--text);
+  }
+  .brand h1 .ai {
+    color: var(--accent);
+  }
+  .brand .sub {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: var(--text-faint);
+    margin-top: 4px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .brand .sub b {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .hist-header {
+    padding: 18px 24px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .hist-header span {
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .hist-header button {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: color 0.15s;
+  }
+  .hist-header button:hover { color: var(--danger); }
+
+  .hist-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px 16px;
+  }
+  .hist-empty {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .hist-item {
+    padding: 14px 12px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: 1px solid transparent;
+  }
+  .hist-item:hover {
+    background: var(--bg-elev-2);
+    border-color: var(--border-bright);
+  }
+  .hist-item .prov {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .hist-item .preview {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .hist-item .time {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 6px;
+  }
+
+  .sidebar-footer {
+    border-top: 1px solid var(--border);
+    padding: 14px 20px;
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.05em;
+  }
+  .sidebar-footer kbd {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-bright);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+
+  /* ---------- Plan card en sidebar ---------- */
+  .plan-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .plan-card.pro { border-color: var(--accent); background: var(--accent-soft); }
+  .plan-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .plan-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--text);
+    padding: 3px 8px;
+    border: 1px solid var(--border-bright);
+    border-radius: 100px;
+    background: var(--bg-elev-2);
+  }
+  .plan-card.pro .plan-tag { color: var(--accent); border-color: var(--accent); background: rgba(0,0,0,0.3); }
+  .plan-upgrade-link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0;
+  }
+  .plan-upgrade-link:hover { text-decoration: underline; }
+  .plan-meter {
+    height: 4px;
+    background: var(--bg-elev-2);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .plan-meter-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+  .plan-meter-fill.warn { background: var(--warn); }
+  .plan-meter-fill.danger { background: var(--danger); }
+  .plan-meter-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.05em;
+  }
+  .plan-card.pro .plan-meter-label { color: var(--text-dim); }
+  .plan-card.pro .plan-meter { display: none; }
+
+  .shortcuts {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    line-height: 1.7;
+  }
+
+  /* ---------- Modal de Pricing ---------- */
+  .pricing-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    z-index: 400;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 40px 20px;
+  }
+  .pricing-overlay.show { display: flex; }
+
+  .pricing-container {
+    width: 100%;
+    max-width: 1100px;
+    animation: modal-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position: relative;
+  }
+
+  .pricing-close {
+    position: absolute;
+    top: -8px;
+    right: 0;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.15s;
+    z-index: 1;
+  }
+  .pricing-close:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .pricing-header {
+    text-align: center;
+    margin-bottom: 36px;
+    padding: 0 20px;
+  }
+  .pricing-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .pricing-title {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 42px;
+    letter-spacing: -0.03em;
+    margin: 0 0 12px;
+    line-height: 1.05;
+  }
+  .pricing-subtitle {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  /* Toggle mensual/anual */
+  .billing-toggle {
+    display: inline-flex;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    border-radius: 100px;
+    padding: 4px;
+    margin: 28px auto 36px;
+    gap: 2px;
+  }
+  .billing-toggle button {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 18px;
+    border-radius: 100px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .billing-toggle button.active {
+    background: var(--accent);
+    color: #000;
+    font-weight: 600;
+  }
+  .billing-save {
+    background: rgba(0,0,0,0.2);
+    color: #000;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .billing-toggle button:not(.active) .billing-save {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* Grid de planes */
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 0 20px;
+  }
+  @media (max-width: 900px) {
+    .plans-grid { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
+  }
+
+  .plan {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    border-radius: 16px;
+    padding: 28px 26px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .plan:hover { transform: translateY(-2px); border-color: var(--text-faint); }
+  .plan.featured {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 40px var(--accent-soft);
+    background: linear-gradient(180deg, var(--bg-elev) 0%, rgba(57, 255, 20, 0.025) 100%);
+  }
+  .plan.featured:hover { border-color: var(--accent); }
+
+  .plan-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    padding: 5px 14px;
+    border-radius: 100px;
+    text-transform: uppercase;
+  }
+
+  .plan-name {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .plan-tagline {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 0 0 22px;
+    line-height: 1.5;
+    min-height: 36px;
+  }
+
+  .plan-price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .plan-price-amount {
+    font-family: var(--display);
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .plan-price-currency {
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  .plan-price-period {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-left: 2px;
+  }
+  .plan-price-note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-bottom: 24px;
+    min-height: 14px;
+  }
+  .plan-price-note s { color: var(--text-faint); margin-right: 6px; }
+
+  .plan-cta {
+    width: 100%;
+    padding: 13px;
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid var(--border-bright);
+    background: var(--bg-elev-2);
+    color: var(--text);
+    transition: all 0.15s;
+    margin-bottom: 24px;
+  }
+  .plan-cta:hover:not(:disabled) { border-color: var(--text-dim); }
+  .plan-cta.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+  }
+  .plan-cta.primary:hover { box-shadow: 0 0 24px var(--accent-glow); }
+  .plan-cta:disabled {
+    background: transparent;
+    color: var(--text-faint);
+    border-color: var(--border);
+    cursor: default;
+  }
+
+  .plan-features-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+  .plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .plan-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .plan-features li .check {
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ---------- Wall (límite alcanzado) ---------- */
+  .word-wall {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(200%);
+    background: var(--bg-elev);
+    border: 1px solid var(--warn);
+    border-radius: 14px;
+    padding: 16px 22px;
+    max-width: 440px;
+    width: calc(100% - 32px);
+    z-index: 220;
+    display: none;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .word-wall.show { display: flex; transform: translateX(-50%) translateY(0); }
+  .word-wall-content { flex: 1; }
+  .word-wall-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--warn);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .word-wall-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .word-wall .btn-primary { padding: 8px 14px; font-size: 11px; }
+
+  /* ---------- Avatar / botón de cuenta ---------- */
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .user-avatar:hover { border-color: var(--accent); color: var(--text); }
+  .user-avatar.signed-in { border-color: var(--accent); }
+  .user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .user-avatar .initials {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0;
+  }
+
+  /* ---------- Auth Modal (sign in) ---------- */
+  .auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    z-index: 350;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .auth-overlay.show { display: flex; }
+
+  .auth-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    border-radius: 18px;
+    max-width: 420px;
+    width: 100%;
+    padding: 36px 32px 32px;
+    text-align: center;
+    animation: modal-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position: relative;
+  }
+
+  .auth-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .auth-logo svg { width: 28px; height: 28px; }
+
+  .auth-card h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 24px;
+    margin: 0 0 8px;
+    letter-spacing: -0.02em;
+  }
+  .auth-card p {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0 0 28px;
+    line-height: 1.6;
+  }
+
+  .google-btn {
+    width: 100%;
+    background: #fff;
+    color: #1f1f1f;
+    border: none;
+    border-radius: 100px;
+    padding: 13px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.15s;
+    margin-bottom: 12px;
+  }
+  .google-btn:hover { background: #f3f3f3; transform: translateY(-1px); }
+  .google-btn svg { width: 18px; height: 18px; }
+
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 18px 0;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .auth-divider::before, .auth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .demo-btn {
+    background: transparent;
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    width: 100%;
+    padding: 11px 16px;
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .demo-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .auth-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: transparent;
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .auth-close:hover { color: var(--text); }
+
+  .auth-footnote {
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    line-height: 1.6;
+  }
+  .auth-footnote a { color: var(--text-dim); text-decoration: underline; }
+
+  /* ---------- Settings Panel ---------- */
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 380;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .settings-overlay.show { display: flex; }
+
+  .settings-container {
+    width: 100%;
+    max-width: 860px;
+    animation: modal-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position: relative;
+  }
+
+  .settings-close {
+    position: absolute;
+    top: -8px;
+    right: 0;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    z-index: 1;
+  }
+  .settings-close:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .settings-header {
+    margin-bottom: 24px;
+  }
+  .settings-header h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 36px;
+    margin: 0 0 6px;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .settings-header p {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .settings-tabs {
+    display: flex;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 16px;
+    gap: 2px;
+    overflow-x: auto;
+  }
+  .settings-tab {
+    flex: 1;
+    min-width: max-content;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .settings-tab:hover { color: var(--text); }
+  .settings-tab.active {
+    background: var(--bg-elev-2);
+    color: var(--text);
+  }
+
+  .settings-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 30px;
+  }
+  .settings-card h3 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 18px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .settings-card .card-sub {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 0 0 22px;
+  }
+  .settings-card hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+  .field label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="password"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .field .help {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 6px;
+  }
+
+  .btn-update {
+    background: var(--accent);
+    color: #000;
+    border: 1px solid var(--accent);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+  }
+  .btn-update:hover { box-shadow: 0 0 18px var(--accent-glow); }
+  .btn-update:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+  .btn-danger-outline {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+  .btn-danger-outline:hover { background: rgba(255,59,59,0.1); }
+
+  .profile-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .profile-avatar-lg {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-avatar-lg .initials {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 24px;
+    color: var(--accent);
+  }
+  .profile-row-meta { flex: 1; }
+  .profile-row-meta .name {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .profile-row-meta .email {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .profile-row-meta .provider {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  .referral-code-box {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--bg);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    padding: 4px 4px 4px 14px;
+    margin-bottom: 14px;
+  }
+  .referral-code-box code {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    background: transparent;
+  }
+  .referral-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .referral-stat {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .referral-stat .num {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 24px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .referral-stat .lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  /* ---------- Main ---------- */
+  .main {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 32px 32px;
+    min-height: 100vh;
+    max-width: 880px;
+    margin: 0 auto;
+  }
+  @media (max-width: 600px) {
+    .main { padding: 16px; }
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+  }
+  .lang-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .lang-pill:hover { border-color: var(--border-bright); color: var(--text); }
+  .lang-pill .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+  }
+
+  .fast-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+  }
+  .switch {
+    width: 36px;
+    height: 20px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-bright);
+    border-radius: 100px;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    transition: all 0.2s;
+  }
+  .fast-toggle.on .switch {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .fast-toggle.on .switch::after {
+    transform: translateX(16px);
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  /* ---------- Mic Stage ---------- */
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px 0;
+    min-height: 320px;
+  }
+
+  .mic-wrap {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 32px;
+  }
+
+  .mic-btn {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position: relative;
+    z-index: 3;
+  }
+  .mic-btn:hover {
+    border-color: var(--accent);
+    transform: scale(1.03);
+  }
+  .mic-btn svg { width: 44px; height: 44px; }
+
+  .mic-btn.recording {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .pulse-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .mic-btn.recording ~ .pulse-ring {
+    animation: pulse 1.8s ease-out infinite;
+  }
+  .mic-btn.recording ~ .pulse-ring.r2 { animation-delay: 0.6s; }
+  .mic-btn.recording ~ .pulse-ring.r3 { animation-delay: 1.2s; }
+
+  @keyframes pulse {
+    0% { transform: scale(0.85); opacity: 0.6; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  /* Audio level bars */
+  .levels {
+    display: flex;
+    gap: 4px;
+    height: 30px;
+    align-items: center;
+    margin-bottom: 24px;
+    opacity: 0.3;
+    transition: opacity 0.3s;
+  }
+  .levels.active { opacity: 1; }
+  .levels .bar {
+    width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    height: 4px;
+    transition: height 0.08s ease;
+  }
+
+  .stage-hint {
+    font-size: 12px;
+    color: var(--text-faint);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    min-height: 16px;
+  }
+  .stage-hint .rec {
+    color: var(--accent);
+  }
+  .stage-hint .rec::before {
+    content: "●";
+    margin-right: 8px;
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+  /* ---------- Transcript ---------- */
+  .transcript-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+    min-height: 140px;
+    position: relative;
+    transition: border-color 0.25s;
+  }
+  .transcript-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-soft), 0 0 32px var(--accent-soft);
+  }
+
+  .transcript-label {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .transcript-label .count {
+    color: var(--text-faint);
+  }
+
+  #transcript {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 17px;
+    line-height: 1.65;
+    min-height: 80px;
+    resize: vertical;
+    outline: none;
+  }
+  #transcript::placeholder {
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  .interim {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  /* ---------- Action row ---------- */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .providers {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .prov-chip {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    border-radius: 100px;
+    padding: 9px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .prov-chip:hover {
+    color: var(--text);
+    border-color: var(--text-dim);
+  }
+  .prov-chip.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .spacer { flex: 1; }
+
+  .btn {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 10px 16px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+  }
+  .btn:hover { border-color: var(--text-dim); }
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .btn svg { width: 14px; height: 14px; }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 600;
+    padding: 12px 22px;
+    font-size: 13px;
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 24px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled:hover { transform: none; box-shadow: none; }
+
+  .btn-danger { color: var(--danger); border-color: var(--danger); }
+
+  /* ---------- Quick send row ---------- */
+  .quick-send {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .quick-send .label {
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    align-self: center;
+    margin-right: 8px;
+  }
+  .qbtn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .qbtn:hover {
+    color: var(--text);
+    border-color: var(--text-dim);
+  }
+  .qbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-family: var(--mono);
+    z-index: 200;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast.success { border-color: var(--accent); color: var(--accent); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+
+  /* ---------- Mobile sidebar toggle ---------- */
+  .menu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 100px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .menu-btn:hover { color: var(--text); border-color: var(--border-bright); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 6px; }
+
+  /* ---------- Modal de permisos ---------- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(8px);
+    z-index: 300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--bg-elev);
+    border: 1px solid var(--danger);
+    border-radius: 16px;
+    max-width: 460px;
+    width: 100%;
+    padding: 32px 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,59,59,0.15);
+    animation: modal-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(255, 59, 59, 0.12);
+    border: 1px solid var(--danger);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--danger);
+    margin-bottom: 18px;
+  }
+
+  .modal h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 22px;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+
+  .modal p {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.65;
+    margin: 0 0 18px;
+  }
+
+  .modal-steps {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 22px;
+  }
+  .modal-steps ol {
+    margin: 0;
+    padding-left: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--text);
+  }
+  .modal-steps li::marker { color: var(--accent); }
+  .modal-steps b { color: var(--accent); font-weight: 600; }
+  .modal-steps .lock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-bright);
+    border-radius: 4px;
+    vertical-align: middle;
+    margin: 0 2px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .modal-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* ---------- Banner iframe restringido ---------- */
+  .iframe-notice {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-120%);
+    background: var(--bg-elev);
+    border: 1px solid var(--warn);
+    color: var(--text);
+    padding: 16px 22px 16px 18px;
+    border-radius: 14px;
+    max-width: 600px;
+    width: calc(100% - 32px);
+    z-index: 250;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .iframe-notice.show { transform: translateX(-50%) translateY(0); }
+  .iframe-notice-icon {
+    color: var(--warn);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .iframe-notice-content { flex: 1; }
+  .iframe-notice-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--warn);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .iframe-notice-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .iframe-notice-close {
+    background: transparent;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 4px;
+    margin-top: -2px;
+  }
+  .iframe-notice-close:hover { color: var(--text); }
+
+  /* ---------- Bloque de comandos ---------- */
+  .cmd-block {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cmd-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px 6px 12px;
+  }
+  .cmd-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    min-width: 56px;
+  }
+  .cmd-row code {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    background: transparent;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .cmd-copy {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .cmd-copy:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .cmd-copy.copied {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .cmd-hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .cmd-hint code {
+    color: var(--text);
+    background: var(--bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ============= BACKDROP ============= -->
+  <div class="sidebar-backdrop" id="backdrop"></div>
+
+  <!-- ============= SIDEBAR ============= -->
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-close" id="sidebar-close" title="Cerrar">×</button>
+    <div class="brand">
+      <div class="brand-row">
+        <span class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 40 40">
+            <rect class="bar" x="4"  y="20" width="4" height="12" fill="currentColor" rx="1.5"/>
+            <rect class="bar" x="11" y="14" width="4" height="18" fill="currentColor" rx="1.5"/>
+            <rect class="bar" x="18" y="6"  width="4" height="26" fill="currentColor" rx="1.5"/>
+            <rect class="bar" x="25" y="14" width="4" height="18" fill="currentColor" rx="1.5"/>
+            <rect class="bar" x="32" y="20" width="4" height="12" fill="currentColor" rx="1.5"/>
+          </svg>
+        </span>
+        <h1>AUD<span class="ai">I</span>A</h1>
+      </div>
+      <div class="sub">Dictate. <b>Don't type.</b></div>
+    </div>
+
+    <div class="hist-header">
+      <span>Historial</span>
+      <button id="btn-clear-history" title="Borrar historial">Limpiar</button>
+    </div>
+
+    <div class="hist-list" id="hist-list">
+      <div class="hist-empty">
+        Tu historial aparecerá aquí.<br/>
+        Empieza dictando algo →
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <!-- Plan actual -->
+      <div class="plan-card" id="plan-card">
+        <div class="plan-card-row">
+          <span class="plan-tag" id="plan-tag">BASIC</span>
+          <button class="plan-upgrade-link" id="open-pricing">Mejorar →</button>
+        </div>
+        <div class="plan-meter">
+          <div class="plan-meter-fill" id="plan-meter-fill"></div>
+        </div>
+        <div class="plan-meter-label">
+          <span id="plan-words-used">0</span> / <span id="plan-words-limit">2.000</span> palabras esta semana
+        </div>
+      </div>
+
+      <!-- Atajos compactos -->
+      <div class="shortcuts">
+        <div><kbd>Espacio</kbd> hablar · <kbd>⌘</kbd>+<kbd>↵</kbd> enviar · <kbd>Esc</kbd> limpiar</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============= MAIN ============= -->
+  <main class="main">
+
+    <div class="topbar">
+      <button class="menu-btn" id="menu-btn" title="Abrir historial">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        Historial
+      </button>
+
+      <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+        <div class="lang-pill" id="lang-pill" title="Cambiar idioma">
+          <span class="dot"></span>
+          <span id="lang-label">ES</span>
+        </div>
+
+        <label class="fast-toggle" id="fast-toggle">
+          <span>Modo rápido</span>
+          <span class="switch"></span>
+        </label>
+
+        <!-- Avatar / Sign-in -->
+        <button class="user-avatar" id="user-avatar" title="Cuenta">
+          <span id="avatar-content">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="mic-wrap">
+        <button class="mic-btn" id="mic-btn" title="Hablar (o mantén Espacio)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <div class="pulse-ring r1"></div>
+        <div class="pulse-ring r2"></div>
+        <div class="pulse-ring r3"></div>
+      </div>
+
+      <div class="levels" id="levels">
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+      </div>
+
+      <div class="stage-hint" id="hint">
+        Pulsa el micrófono para empezar a dictar
+      </div>
+    </div>
+
+    <div class="transcript-card" id="transcript-card">
+      <div class="transcript-label">
+        <span>Transcripción</span>
+        <span class="count"><span id="char-count">0</span> caracteres</span>
+      </div>
+      <textarea id="transcript" placeholder="Aquí aparecerá lo que dictes. También puedes escribir o editar directamente."></textarea>
+    </div>
+
+    <div class="actions">
+      <div class="providers">
+        <button class="prov-chip active" data-provider="claude">Claude</button>
+        <button class="prov-chip" data-provider="chatgpt">ChatGPT</button>
+        <button class="prov-chip" data-provider="gemini">Gemini</button>
+        <button class="prov-chip" data-provider="perplexity">Perplexity</button>
+        <button class="prov-chip" data-provider="grok">Grok</button>
+      </div>
+
+      <div class="spacer"></div>
+
+      <button class="btn" id="btn-copy" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copiar
+      </button>
+
+      <button class="btn btn-danger" id="btn-clear" disabled>Limpiar</button>
+
+      <button class="btn btn-primary" id="btn-send" disabled>
+        Enviar a <span id="send-target">Claude</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
+    <div class="quick-send">
+      <span class="label">Enviar a →</span>
+      <button class="qbtn" data-target="notion" disabled>Notion</button>
+      <button class="qbtn" data-target="gmail" disabled>Gmail</button>
+      <button class="qbtn" data-target="docs" disabled>Google Docs</button>
+      <button class="qbtn" data-target="keep" disabled>Keep</button>
+      <button class="qbtn" data-target="email" disabled>Email</button>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ============= BANNER RESTRICCIÓN ============= -->
+<div class="iframe-notice" id="iframe-notice" role="alert">
+  <span class="iframe-notice-icon">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  </span>
+  <div class="iframe-notice-content">
+    <div class="iframe-notice-title" id="notice-title">Modo limitado</div>
+    <div class="iframe-notice-text" id="notice-body">
+      Estás usando Audia dentro de un iframe que bloquea el micrófono por seguridad.
+    </div>
+    <div class="cmd-block" id="cmd-block" style="display:none">
+      <div class="cmd-row">
+        <span class="cmd-label">Python 3</span>
+        <code id="cmd-py">python3 -m http.server 8000</code>
+        <button class="cmd-copy" data-cmd="python3 -m http.server 8000">Copiar</button>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-label">Node.js</span>
+        <code id="cmd-node">npx serve .</code>
+        <button class="cmd-copy" data-cmd="npx serve .">Copiar</button>
+      </div>
+      <div class="cmd-hint">Luego abre <code>http://localhost:8000/audia_voicebridge.html</code></div>
+    </div>
+  </div>
+  <button class="iframe-notice-close" id="iframe-notice-close" title="Cerrar">×</button>
+</div>
+
+<!-- ============= MODAL PERMISO MICRÓFONO ============= -->
+<div class="modal-overlay" id="mic-modal">
+  <div class="modal" role="dialog" aria-labelledby="mic-modal-title">
+    <div class="modal-icon">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    </div>
+
+    <h2 id="mic-modal-title">Micrófono bloqueado</h2>
+    <p>Audia necesita acceso al micrófono para transcribir tu voz. Tu navegador denegó el permiso. Para activarlo:</p>
+
+    <div class="modal-steps">
+      <ol>
+        <li>Pulsa el icono <span class="lock">🔒</span> a la izquierda de la barra de direcciones.</li>
+        <li>Busca <b>Micrófono</b> y cámbialo a <b>Permitir</b>.</li>
+        <li>Vuelve a esta pestaña y pulsa <b>Reintentar</b>.</li>
+      </ol>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="mic-modal-close">Cerrar</button>
+      <button class="btn btn-primary" id="mic-modal-retry">Reintentar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Audia VoiceBridge — App Logic
+   ------------------------------------------------------------
+   - Web Speech API para transcripción en tiempo real
+   - Web Audio API para niveles de audio (animación)
+   - window.storage para historial persistente
+   - Deep-link a IAs (Claude, ChatGPT, Gemini, Perplexity, Grok)
+   - Quick-send a Notion / Gmail / Google Docs / Keep / Email
+   ============================================================ */
+
+// ---------- Polyfill: window.storage (localStorage fallback) ----------
+// La app usa window.storage.get/set/delete que solo existe en entornos
+// tipo extensión o Electron. En navegadores estándar usamos localStorage.
+if (!window.storage) {
+  window.storage = {
+    async get(key) {
+      const value = localStorage.getItem(key);
+      return value !== null ? { value } : null;
+    },
+    async set(key, value) {
+      localStorage.setItem(key, value);
+    },
+    async delete(key) {
+      localStorage.removeItem(key);
+    },
+  };
+}
+
+// ---------- Configuración de proveedores ----------
+const PROVIDERS = {
+  claude:     { name: "Claude",     url: (t) => `https://claude.ai/new?q=${encodeURIComponent(t)}` },
+  chatgpt:    { name: "ChatGPT",    url: (t) => `https://chatgpt.com/?q=${encodeURIComponent(t)}` },
+  gemini:     { name: "Gemini",     url: (t) => `https://gemini.google.com/app?q=${encodeURIComponent(t)}` },
+  perplexity: { name: "Perplexity", url: (t) => `https://www.perplexity.ai/search?q=${encodeURIComponent(t)}` },
+  grok:       { name: "Grok",       url: (t) => `https://grok.com/?q=${encodeURIComponent(t)}` },
+};
+
+const QUICK_TARGETS = {
+  notion: (t) => `https://www.notion.so/?prefill=${encodeURIComponent(t)}`,
+  gmail:  (t) => `https://mail.google.com/mail/?view=cm&fs=1&body=${encodeURIComponent(t)}`,
+  docs:   (t) => `https://docs.google.com/document/create?usp=docs_home&body=${encodeURIComponent(t)}`,
+  keep:   (t) => `https://keep.google.com/#NOTE/?text=${encodeURIComponent(t)}`,
+  email:  (t) => `mailto:?body=${encodeURIComponent(t)}`,
+};
+
+// ---------- Estado ----------
+let recognition = null;
+let isRecording = false;
+let finalTranscript = "";
+let interimTranscript = "";
+let currentProvider = "claude";
+let fastMode = false;
+let currentLang = "es-ES";
+let silenceTimer = null;
+let audioCtx = null;
+let analyser = null;
+let audioStream = null;
+let animationFrame = null;
+
+const LANGUAGES = [
+  { code: "es-ES", label: "ES" },
+  { code: "en-US", label: "EN" },
+  { code: "pt-BR", label: "PT" },
+  { code: "fr-FR", label: "FR" },
+];
+
+// ---------- Referencias DOM ----------
+const $ = (id) => document.getElementById(id);
+const micBtn = $("mic-btn");
+const transcriptEl = $("transcript");
+const transcriptCard = $("transcript-card");
+const hintEl = $("hint");
+const charCountEl = $("char-count");
+const levelsEl = $("levels");
+const sendBtn = $("btn-send");
+const copyBtn = $("btn-copy");
+const clearBtn = $("btn-clear");
+const sendTarget = $("send-target");
+const histListEl = $("hist-list");
+const toastEl = $("toast");
+const fastToggle = $("fast-toggle");
+const langPill = $("lang-pill");
+const langLabel = $("lang-label");
+
+// ---------- Detección de permisos ----------
+// Usamos Permissions API para saber el estado real del micrófono.
+// Esto es más fiable que esperar al error de Web Speech.
+let permissionStatus = null;
+
+async function checkMicPermission() {
+  if (!navigator.permissions || !navigator.permissions.query) {
+    return "unknown";
+  }
+  try {
+    const status = await navigator.permissions.query({ name: "microphone" });
+    permissionStatus = status;
+
+    // Listener: si el usuario cambia el permiso en el navegador,
+    // ocultamos el modal automáticamente y dejamos la app lista.
+    status.onchange = () => {
+      if (status.state === "granted") {
+        hideMicModal();
+        // Forzamos recreación de la instancia para que detecte el nuevo permiso
+        if (recognition) {
+          try { recognition.abort(); } catch (e) {}
+          recognition.onresult = null;
+          recognition.onerror = null;
+          recognition.onend = null;
+          recognition = null;
+        }
+        showToast("Micrófono habilitado · listo para dictar", "success");
+      } else if (status.state === "denied") {
+        showMicModal();
+      }
+    };
+    return status.state; // "granted" | "denied" | "prompt"
+  } catch (e) {
+    return "unknown";
+  }
+}
+
+// ---------- Detección de iframe restringido / file:// ----------
+function detectRestriction() {
+  const inIframe = window.self !== window.top;
+  const isFile = window.location.protocol === "file:";
+  const isSecure = window.isSecureContext;
+
+  if (inIframe) {
+    return {
+      kind: "iframe",
+      title: "Modo limitado · iframe",
+      body: "Estás usando Audia dentro de un iframe que bloquea el micrófono por seguridad. <b>Descarga el archivo y sírvelo desde un servidor local</b> para que funcione.",
+      command: null,
+    };
+  }
+
+  if (isFile) {
+    return {
+      kind: "file",
+      title: "Necesitas un servidor local",
+      body: "Abriste el archivo con <b>file://</b> y los navegadores bloquean el micrófono en ese modo. Abre una terminal en la carpeta del archivo y ejecuta uno de estos comandos:",
+      command: true,
+    };
+  }
+
+  if (!isSecure) {
+    return {
+      kind: "insecure",
+      title: "Contexto inseguro",
+      body: "El navegador exige HTTPS para acceder al micrófono. Usa <b>https://</b> o <b>localhost</b> para servir Audia.",
+      command: null,
+    };
+  }
+
+  return null;
+}
+
+// ---------- Inicializar Speech Recognition ----------
+function initRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    showToast("Tu navegador no soporta Web Speech API. Usa Chrome o Edge.", "error");
+    micBtn.disabled = true;
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = currentLang;
+
+  recognition.onstart = () => {
+    startAudioVisualizer();
+  };
+
+  recognition.onresult = (event) => {
+    interimTranscript = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const text = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += text + (text.endsWith(" ") ? "" : " ");
+      } else {
+        interimTranscript += text;
+      }
+    }
+    updateTranscriptDisplay();
+
+    // Reset silencio para modo rápido
+    if (fastMode) {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        if (isRecording && finalTranscript.trim().length > 0) {
+          stopRecording();
+          sendToAI();
+        }
+      }, 2000);
+    }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === "no-speech") return;
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      showMicModal();
+    } else if (e.error === "audio-capture") {
+      showToast("No se detecta micrófono en tu dispositivo", "error");
+    } else if (e.error === "network") {
+      showToast("Error de red en el servicio de voz", "error");
+    } else {
+      showToast(`Error: ${e.error}`, "error");
+    }
+    stopRecording();
+  };
+
+  recognition.onend = () => {
+    // Si seguimos en modo grabación, reiniciar (manejo de timeout silenciosamente)
+    if (isRecording) {
+      // Delay corto para evitar InvalidStateError al reiniciar demasiado rápido
+      setTimeout(() => {
+        if (isRecording && recognition) {
+          try { recognition.start(); } catch (err) {
+            console.warn('Reinicio de recognition falló, recreando instancia...', err);
+            // Recrear la instancia si start() falla
+            recognition = null;
+            initRecognition();
+            if (recognition) {
+              try { recognition.start(); } catch (e2) {
+                console.error('No se pudo reiniciar recognition:', e2);
+                stopRecording();
+                showToast('Error al reiniciar la grabación', 'error');
+              }
+            }
+          }
+        }
+      }, 150);
+    }
+  };
+}
+
+// ---------- Web Audio para animación de niveles ----------
+async function startAudioVisualizer() {
+  // Limpiar cualquier instancia previa antes de crear una nueva.
+  // Sin esto, un stream que falló o quedó vivo bloquea getUserMedia.
+  stopAudioVisualizer();
+
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    const source = audioCtx.createMediaStreamSource(audioStream);
+    source.connect(analyser);
+    levelsEl.classList.add("active");
+    drawLevels();
+  } catch (e) {
+    // Si el permiso fue denegado en getUserMedia, mostramos el modal.
+    // La transcripción puede seguir funcionando si recognition ya tenía permiso previo,
+    // pero generalmente ambos fallan juntos.
+    if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) {
+      showMicModal();
+    }
+    // En cualquier caso, mostramos las barras inertes para no romper el layout.
+    levelsEl.classList.add("active");
+  }
+}
+
+function drawLevels() {
+  if (!analyser) return;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  const bars = levelsEl.querySelectorAll(".bar");
+
+  const loop = () => {
+    analyser.getByteFrequencyData(data);
+    bars.forEach((bar, i) => {
+      const idx = Math.floor((i / bars.length) * data.length);
+      const v = data[idx] / 255;
+      const h = 4 + v * 36;
+      bar.style.height = `${h}px`;
+    });
+    animationFrame = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+function stopAudioVisualizer() {
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+  }
+  if (audioStream) {
+    try { audioStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+  }
+  if (audioCtx && audioCtx.state !== "closed") {
+    try { audioCtx.close(); } catch (e) {}
+  }
+  audioStream = null; audioCtx = null; analyser = null;
+  levelsEl.classList.remove("active");
+  levelsEl.querySelectorAll(".bar").forEach((b) => (b.style.height = "4px"));
+}
+
+// ---------- Grabación ----------
+async function startRecording() {
+  // Siempre recrear la instancia para evitar estados inválidos entre sesiones
+  if (recognition) {
+    try { recognition.abort(); } catch (e) {}
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+    recognition = null;
+  }
+  initRecognition();
+  if (!recognition) return;
+
+  finalTranscript = transcriptEl.value ? transcriptEl.value + " " : "";
+  interimTranscript = "";
+
+  try {
+    recognition.start();
+    isRecording = true;
+    micBtn.classList.add("recording");
+    transcriptCard.classList.add("active");
+    hintEl.innerHTML = '<span class="rec">Grabando...</span>';
+    // startAudioVisualizer() se llama ahora desde recognition.onstart para evitar conflictos de hardware
+  } catch (e) {
+    // Errores síncronos: InvalidStateError (recognition ya activa) o NotAllowedError
+    if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) {
+      showMicModal();
+    } else if (e && e.name === "InvalidStateError") {
+      // La instancia ya estaba arrancada — intentamos pararla y reintentar
+      try { recognition.abort(); } catch (_) {}
+      recognition = null;
+      setTimeout(() => startRecording(), 250);
+    } else {
+      showToast("No se pudo iniciar la grabación", "error");
+    }
+  }
+}
+
+function stopRecording() {
+  if (!recognition) return;
+  isRecording = false;
+  try { recognition.stop(); } catch (e) {}
+  micBtn.classList.remove("recording");
+  transcriptCard.classList.remove("active");
+  hintEl.innerHTML = "Pulsa el micrófono para seguir dictando";
+  stopAudioVisualizer();
+  if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+  // Volcar interim a final
+  if (interimTranscript) {
+    finalTranscript += interimTranscript;
+    interimTranscript = "";
+    updateTranscriptDisplay();
+  }
+}
+
+function toggleRecording() {
+  isRecording ? stopRecording() : startRecording();
+}
+
+// ---------- Actualizar transcripción ----------
+function updateTranscriptDisplay() {
+  const combined = (finalTranscript + " " + interimTranscript).trim();
+  transcriptEl.value = combined;
+  updateUIState();
+}
+
+function updateUIState() {
+  const text = transcriptEl.value.trim();
+  const hasText = text.length > 0;
+  charCountEl.textContent = transcriptEl.value.length;
+  sendBtn.disabled = !hasText;
+  copyBtn.disabled = !hasText;
+  clearBtn.disabled = !hasText;
+  document.querySelectorAll(".qbtn").forEach((b) => (b.disabled = !hasText));
+}
+
+// ---------- Enviar a IA ----------
+async function sendToAI() {
+  const text = transcriptEl.value.trim();
+  if (!text) return;
+
+  // Comprobar límite del plan
+  if (!canSend()) {
+    showWordWall();
+    return;
+  }
+
+  const prov = PROVIDERS[currentProvider];
+  if (!prov) return;
+
+  // Copiar al portapapeles como fallback
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {}
+
+  // Abrir en pestaña nueva con texto pre-cargado
+  window.open(prov.url(text), "_blank", "noopener,noreferrer");
+  showToast(`Enviado a ${prov.name} (texto copiado al portapapeles)`, "success");
+
+  // Contabilizar palabras para el plan Basic
+  await trackWords(text);
+
+  // Guardar en historial
+  await saveHistory({
+    id: Date.now().toString(),
+    timestamp: Date.now(),
+    text,
+    provider: currentProvider,
+    providerName: prov.name,
+  });
+}
+
+// ---------- Acciones rápidas ----------
+async function quickSend(target) {
+  const text = transcriptEl.value.trim();
+  if (!text) return;
+  const fn = QUICK_TARGETS[target];
+  if (!fn) return;
+  try { await navigator.clipboard.writeText(text); } catch (e) {}
+  window.open(fn(text), "_blank", "noopener,noreferrer");
+  showToast(`Texto copiado y abriendo ${target}`, "success");
+}
+
+// ---------- Copiar / Limpiar ----------
+async function copyText() {
+  const text = transcriptEl.value.trim();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copiado al portapapeles", "success");
+  } catch (e) {
+    showToast("No se pudo copiar", "error");
+  }
+}
+
+function clearText() {
+  transcriptEl.value = "";
+  finalTranscript = "";
+  interimTranscript = "";
+  updateUIState();
+}
+
+// ---------- Historial (window.storage) ----------
+async function saveHistory(entry) {
+  let history = await getHistory();
+  history.unshift(entry);
+  history = history.slice(0, 20);
+  try {
+    await window.storage.set("audia:history", JSON.stringify(history));
+  } catch (e) { console.warn("No se pudo guardar historial", e); }
+  renderHistory(history);
+}
+
+async function getHistory() {
+  try {
+    const r = await window.storage.get("audia:history");
+    return r ? JSON.parse(r.value) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function renderHistory(history) {
+  if (!history || history.length === 0) {
+    histListEl.innerHTML = `<div class="hist-empty">Tu historial aparecerá aquí.<br/>Empieza dictando algo →</div>`;
+    return;
+  }
+  histListEl.innerHTML = history.map((h) => `
+    <div class="hist-item" data-id="${h.id}">
+      <div class="prov">${h.providerName || h.provider}</div>
+      <div class="preview">${escapeHTML(h.text)}</div>
+      <div class="time">${formatTime(h.timestamp)}</div>
+    </div>
+  `).join("");
+
+  histListEl.querySelectorAll(".hist-item").forEach((el) => {
+    el.addEventListener("click", async () => {
+      const id = el.dataset.id;
+      const all = await getHistory();
+      const item = all.find((x) => x.id === id);
+      if (item) {
+        transcriptEl.value = item.text;
+        finalTranscript = item.text;
+        updateUIState();
+        closeSidebar();
+        showToast("Cargado del historial", "success");
+      }
+    });
+  });
+}
+
+async function clearHistory() {
+  if (!confirm("¿Borrar todo el historial?")) return;
+  try {
+    await window.storage.delete("audia:history");
+  } catch (e) {}
+  renderHistory([]);
+  showToast("Historial borrado", "success");
+}
+
+// ---------- Helpers ----------
+function escapeHTML(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return "hace un momento";
+  if (diff < 3600) return `hace ${Math.floor(diff/60)}m`;
+  if (diff < 86400) return `hace ${Math.floor(diff/3600)}h`;
+  return d.toLocaleDateString();
+}
+
+function showToast(msg, type = "") {
+  toastEl.textContent = msg;
+  toastEl.className = `toast show ${type}`;
+  setTimeout(() => toastEl.classList.remove("show"), 2800);
+}
+
+// ---------- Event Listeners ----------
+micBtn.addEventListener("click", toggleRecording);
+
+transcriptEl.addEventListener("input", () => {
+  finalTranscript = transcriptEl.value;
+  interimTranscript = "";
+  updateUIState();
+});
+
+document.querySelectorAll(".prov-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".prov-chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    currentProvider = chip.dataset.provider;
+    sendTarget.textContent = PROVIDERS[currentProvider].name;
+  });
+});
+
+sendBtn.addEventListener("click", sendToAI);
+copyBtn.addEventListener("click", copyText);
+clearBtn.addEventListener("click", clearText);
+$("btn-clear-history").addEventListener("click", clearHistory);
+
+document.querySelectorAll(".qbtn").forEach((btn) => {
+  btn.addEventListener("click", () => quickSend(btn.dataset.target));
+});
+
+// Modo rápido toggle
+fastToggle.addEventListener("click", () => {
+  fastMode = !fastMode;
+  fastToggle.classList.toggle("on", fastMode);
+  showToast(fastMode ? "Modo rápido: ON" : "Modo rápido: OFF");
+});
+
+// Selector de idioma
+langPill.addEventListener("click", () => {
+  const idx = LANGUAGES.findIndex((l) => l.code === currentLang);
+  const next = LANGUAGES[(idx + 1) % LANGUAGES.length];
+  currentLang = next.code;
+  langLabel.textContent = next.label;
+  if (recognition) {
+    recognition.lang = currentLang;
+    if (isRecording) {
+      stopRecording();
+      setTimeout(startRecording, 200);
+    }
+  }
+  showToast(`Idioma: ${next.label}`);
+});
+
+// Menú / drawer del sidebar
+const sidebarEl = $("sidebar");
+const backdropEl = $("backdrop");
+
+function openSidebar() {
+  sidebarEl.classList.add("open");
+  backdropEl.classList.add("show");
+}
+function closeSidebar() {
+  sidebarEl.classList.remove("open");
+  backdropEl.classList.remove("show");
+}
+$("menu-btn").addEventListener("click", openSidebar);
+$("sidebar-close").addEventListener("click", closeSidebar);
+backdropEl.addEventListener("click", closeSidebar);
+
+// Modal de permiso de micrófono
+const micModalEl = $("mic-modal");
+function showMicModal() {
+  micModalEl.classList.add("show");
+}
+function hideMicModal() {
+  micModalEl.classList.remove("show");
+}
+$("mic-modal-close").addEventListener("click", hideMicModal);
+
+// Banner de restricción (iframe / file:// / contexto inseguro)
+const iframeNoticeEl = $("iframe-notice");
+function showRestrictionNotice(info) {
+  $("notice-title").textContent = info.title;
+  $("notice-body").innerHTML = info.body;
+  $("cmd-block").style.display = info.command ? "flex" : "none";
+  iframeNoticeEl.classList.add("show");
+}
+function hideIframeNotice() {
+  iframeNoticeEl.classList.remove("show");
+}
+$("iframe-notice-close").addEventListener("click", hideIframeNotice);
+
+// Handlers para copiar comandos al portapapeles
+document.querySelectorAll(".cmd-copy").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const cmd = btn.dataset.cmd;
+    try {
+      await navigator.clipboard.writeText(cmd);
+      const original = btn.textContent;
+      btn.textContent = "✓ Copiado";
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove("copied");
+      }, 1800);
+    } catch (e) {
+      showToast("No se pudo copiar", "error");
+    }
+  });
+});
+$("mic-modal-retry").addEventListener("click", async () => {
+  hideMicModal();
+
+  // Crítico: hay que destruir la instancia previa de SpeechRecognition.
+  // Si el permiso fue denegado antes, esa instancia queda "envenenada" y
+  // seguirá fallando aunque el navegador ya tenga permiso concedido.
+  if (recognition) {
+    try { recognition.abort(); } catch (e) {}
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+    recognition = null;
+  }
+
+  // Limpiar también cualquier stream de audio remanente
+  stopAudioVisualizer();
+
+  // Pequeño delay para que el navegador procese el cambio de permiso
+  setTimeout(() => startRecording(), 350);
+});
+// Cerrar modal clickando fuera
+micModalEl.addEventListener("click", (e) => {
+  if (e.target === micModalEl) hideMicModal();
+});
+
+// Atajos de teclado
+let spaceHeld = false;
+document.addEventListener("keydown", (e) => {
+  // Espacio (push-to-talk) — solo si no estamos en el textarea
+  if (e.code === "Space" && document.activeElement !== transcriptEl && !spaceHeld) {
+    e.preventDefault();
+    spaceHeld = true;
+    if (!isRecording) startRecording();
+  }
+  // Cmd/Ctrl + Enter — enviar
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    if (!sendBtn.disabled) sendToAI();
+  }
+  // Esc — limpiar
+  if (e.key === "Escape" && document.activeElement === transcriptEl) {
+    clearText();
+  }
+});
+document.addEventListener("keyup", (e) => {
+  if (e.code === "Space" && spaceHeld) {
+    spaceHeld = false;
+    if (isRecording) stopRecording();
+  }
+});
+
+// ============================================================
+//                    PLANES Y LÍMITES
+// ============================================================
+
+const PLAN_LIMITS = {
+  basic: { words: 2000, label: "BASIC" },
+  pro:   { words: Infinity, label: "PRO" },
+  enterprise: { words: Infinity, label: "ENTERPRISE" },
+};
+
+let currentPlan = "basic";
+let billingCycle = "monthly"; // monthly | annual
+
+// Estado de uso semanal: { weekStart: timestamp, wordsUsed: number }
+let usage = { weekStart: getWeekStart(), wordsUsed: 0 };
+
+function getWeekStart() {
+  // Lunes 00:00 de esta semana (en hora local)
+  const now = new Date();
+  const day = now.getDay() || 7; // domingo=7
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day - 1));
+  monday.setHours(0, 0, 0, 0);
+  return monday.getTime();
+}
+
+function countWords(text) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+async function loadPlanAndUsage() {
+  try {
+    const p = await window.storage.get("audia:plan");
+    if (p) currentPlan = JSON.parse(p.value);
+  } catch (e) {}
+  try {
+    const u = await window.storage.get("audia:usage");
+    if (u) {
+      const parsed = JSON.parse(u.value);
+      // Si la semana cambió, reiniciamos contador
+      if (parsed.weekStart === getWeekStart()) {
+        usage = parsed;
+      } else {
+        usage = { weekStart: getWeekStart(), wordsUsed: 0 };
+        await saveUsage();
+      }
+    }
+  } catch (e) {}
+  renderPlanCard();
+}
+
+async function savePlan() {
+  try { await window.storage.set("audia:plan", JSON.stringify(currentPlan)); } catch (e) {}
+}
+async function saveUsage() {
+  try { await window.storage.set("audia:usage", JSON.stringify(usage)); } catch (e) {}
+}
+
+// Renderiza el card del plan en el sidebar
+function renderPlanCard() {
+  const card = $("plan-card");
+  const tag = $("plan-tag");
+  const fill = $("plan-meter-fill");
+  const usedEl = $("plan-words-used");
+  const limitEl = $("plan-words-limit");
+
+  const limit = PLAN_LIMITS[currentPlan].words;
+  tag.textContent = PLAN_LIMITS[currentPlan].label;
+
+  if (currentPlan === "pro" || currentPlan === "enterprise") {
+    card.classList.add("pro");
+    usedEl.textContent = usage.wordsUsed.toLocaleString("es-ES");
+    limitEl.textContent = "∞";
+    fill.style.width = "100%";
+  } else {
+    card.classList.remove("pro");
+    const pct = Math.min(100, (usage.wordsUsed / limit) * 100);
+    fill.style.width = pct + "%";
+    fill.classList.toggle("warn", pct >= 75 && pct < 100);
+    fill.classList.toggle("danger", pct >= 100);
+    usedEl.textContent = usage.wordsUsed.toLocaleString("es-ES");
+    limitEl.textContent = limit.toLocaleString("es-ES");
+  }
+}
+
+// Contabiliza palabras nuevas. Se llama tras cada envío a IA.
+async function trackWords(text) {
+  if (currentPlan !== "basic") return true; // sin límite
+  const words = countWords(text);
+  const newTotal = usage.wordsUsed + words;
+  usage.wordsUsed = newTotal;
+  await saveUsage();
+  renderPlanCard();
+  if (newTotal >= PLAN_LIMITS.basic.words) {
+    showWordWall();
+  }
+  return true;
+}
+
+// Comprueba si puede enviar más; bloquea si ya pasó el límite
+function canSend() {
+  if (currentPlan !== "basic") return true;
+  return usage.wordsUsed < PLAN_LIMITS.basic.words;
+}
+
+// ============================================================
+//                    MODAL DE PRICING
+// ============================================================
+
+const pricingOverlay = $("pricing-overlay");
+
+function openPricing() { pricingOverlay.classList.add("show"); }
+function closePricing() { pricingOverlay.classList.remove("show"); }
+
+$("open-pricing").addEventListener("click", openPricing);
+$("pricing-close").addEventListener("click", closePricing);
+pricingOverlay.addEventListener("click", (e) => {
+  if (e.target === pricingOverlay) closePricing();
+});
+
+// Toggle mensual/anual
+document.querySelectorAll(".billing-toggle button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".billing-toggle button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    billingCycle = btn.dataset.billing;
+    updatePricingDisplay();
+  });
+});
+
+function updatePricingDisplay() {
+  const amountEl = document.querySelector('[data-price-monthly]');
+  const noteEl = $("pro-note");
+  if (billingCycle === "annual") {
+    amountEl.textContent = amountEl.dataset.priceAnnual;
+    noteEl.innerHTML = '<s>$20</s>$17/mes · facturado anualmente';
+  } else {
+    amountEl.textContent = amountEl.dataset.priceMonthly;
+    noteEl.textContent = 'Facturado mensualmente';
+  }
+}
+
+// Botón "Mejorar a Pro"
+$("upgrade-pro").addEventListener("click", async () => {
+  // En producción aquí iría el checkout de Stripe / LemonSqueezy.
+  // Para esta demo, simulamos la mejora local.
+  if (!confirm(`Demo: ¿activar plan Pro (${billingCycle === "annual" ? "$17/mes anual" : "$20/mes"})?\n\nEn producción aquí se abriría el checkout.`)) return;
+  currentPlan = "pro";
+  await savePlan();
+  renderPlanCard();
+  closePricing();
+  hideWordWall();
+  showToast("¡Bienvenido a Pro! Dictado ilimitado activado", "success");
+});
+
+// Botón "Contactar ventas"
+$("contact-sales").addEventListener("click", () => {
+  window.open("mailto:sales@audia.app?subject=Consulta%20Enterprise", "_blank");
+});
+
+// ============================================================
+//                    WORD WALL (límite alcanzado)
+// ============================================================
+
+const wordWallEl = $("word-wall");
+function showWordWall() { wordWallEl.classList.add("show"); }
+function hideWordWall() { wordWallEl.classList.remove("show"); }
+
+$("wall-upgrade").addEventListener("click", () => {
+  hideWordWall();
+  openPricing();
+});
+
+// ============================================================
+//                    AUTENTICACIÓN
+// ============================================================
+
+// ⚠️ CONFIGURACIÓN: pega aquí tu Google OAuth Client ID
+// Obtén el tuyo en: https://console.cloud.google.com/apis/credentials
+// Mientras esté vacío, el botón de Google muestra un mensaje y se usa el modo demo.
+const GOOGLE_CLIENT_ID = ""; // ej. "1234567890-abc.apps.googleusercontent.com"
+
+let currentUser = null;
+// Estructura: { id, name, email, picture, provider: "google"|"demo", organization?, displayName? }
+
+const authOverlay = $("auth-overlay");
+const settingsOverlay = $("settings-overlay");
+const userAvatar = $("user-avatar");
+const avatarContent = $("avatar-content");
+
+// --- Persistencia ---
+async function saveUser() {
+  if (!currentUser) {
+    try { await window.storage.delete("audia:user"); } catch (e) {}
+  } else {
+    try { await window.storage.set("audia:user", JSON.stringify(currentUser)); } catch (e) {}
+  }
+}
+
+async function loadUser() {
+  try {
+    const r = await window.storage.get("audia:user");
+    if (r) {
+      currentUser = JSON.parse(r.value);
+      renderAvatar();
+    }
+  } catch (e) {}
+}
+
+// --- Decodificar JWT de Google (payload base64) ---
+function parseJwt(token) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64).split("").map((c) =>
+        "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)
+      ).join("")
+    );
+    return JSON.parse(json);
+  } catch (e) {
+    return null;
+  }
+}
+
+// --- Callback de Google Sign-In ---
+async function handleGoogleCredentialResponse(response) {
+  const payload = parseJwt(response.credential);
+  if (!payload) {
+    showToast("Error al procesar la respuesta de Google", "error");
+    return;
+  }
+  currentUser = {
+    id: payload.sub,
+    name: payload.name,
+    email: payload.email,
+    picture: payload.picture,
+    provider: "google",
+    displayName: payload.name,
+    organization: "",
+  };
+  await saveUser();
+  renderAvatar();
+  closeAuth();
+  showToast(`Bienvenido, ${payload.given_name || payload.name}`, "success");
+}
+
+// --- Inicializar Google Identity Services ---
+let googleInitialized = false;
+function initGoogleAuth() {
+  if (googleInitialized) return;
+  if (!window.google || !window.google.accounts) return;
+  if (!GOOGLE_CLIENT_ID) return;
+  try {
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+    googleInitialized = true;
+  } catch (e) {
+    console.warn("No se pudo inicializar Google Auth:", e);
+  }
+}
+
+// Reintenta hasta que el SDK de Google esté disponible
+function tryInitGoogle() {
+  if (window.google?.accounts?.id) {
+    initGoogleAuth();
+  } else {
+    setTimeout(tryInitGoogle, 250);
+  }
+}
+
+// --- Disparar login con Google ---
+function signInWithGoogle() {
+  if (!GOOGLE_CLIENT_ID) {
+    showToast("Configura GOOGLE_CLIENT_ID en el código para activar el login real", "error");
+    return;
+  }
+  initGoogleAuth();
+  if (!googleInitialized) {
+    showToast("Google Sign-In no está disponible todavía", "error");
+    return;
+  }
+  // Mostramos el prompt de "One Tap" / popup
+  window.google.accounts.id.prompt((notification) => {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      // Fallback: abrir un popup OAuth manual
+      const oauthURL = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(window.location.origin + window.location.pathname)}&response_type=token&scope=openid%20profile%20email`;
+      window.location.href = oauthURL;
+    }
+  });
+}
+
+// --- Modo demo (para probar sin OAuth configurado) ---
+async function signInDemo() {
+  const demoEmail = prompt("Modo demo — escribe un email para simular el login:", "demo@audia.app");
+  if (!demoEmail) return;
+  const name = demoEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  currentUser = {
+    id: "demo-" + Date.now(),
+    name,
+    email: demoEmail,
+    picture: null,
+    provider: "demo",
+    displayName: name,
+    organization: "",
+  };
+  await saveUser();
+  renderAvatar();
+  closeAuth();
+  showToast(`Sesión demo activa: ${demoEmail}`, "success");
+}
+
+// --- Sign out ---
+async function signOut() {
+  if (!confirm("¿Cerrar sesión?")) return;
+  currentUser = null;
+  await saveUser();
+  renderAvatar();
+  closeSettings();
+  showToast("Sesión cerrada", "success");
+}
+
+// --- Renderizar avatar según estado ---
+function renderAvatar() {
+  if (currentUser) {
+    userAvatar.classList.add("signed-in");
+    userAvatar.title = currentUser.email;
+    if (currentUser.picture) {
+      avatarContent.innerHTML = `<img src="${currentUser.picture}" alt="${escapeHTML(currentUser.name)}" referrerpolicy="no-referrer" />`;
+    } else {
+      const initials = (currentUser.name || currentUser.email || "?")
+        .split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+      avatarContent.innerHTML = `<span class="initials">${escapeHTML(initials)}</span>`;
+    }
+  } else {
+    userAvatar.classList.remove("signed-in");
+    userAvatar.title = "Iniciar sesión";
+    avatarContent.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  }
+}
+
+// --- Abrir/cerrar Auth modal ---
+function openAuth() { authOverlay.classList.add("show"); }
+function closeAuth() { authOverlay.classList.remove("show"); }
+
+$("auth-close").addEventListener("click", closeAuth);
+authOverlay.addEventListener("click", (e) => { if (e.target === authOverlay) closeAuth(); });
+$("google-signin-btn").addEventListener("click", signInWithGoogle);
+$("demo-signin-btn").addEventListener("click", signInDemo);
+
+// --- Clic en avatar: abrir auth o settings ---
+userAvatar.addEventListener("click", () => {
+  if (currentUser) {
+    openSettings();
+  } else {
+    openAuth();
+  }
+});
+
+// ============================================================
+//                    SETTINGS PANEL
+// ============================================================
+
+function openSettings() {
+  if (!currentUser) { openAuth(); return; }
+  loadSettingsData();
+  settingsOverlay.classList.add("show");
+}
+function closeSettings() { settingsOverlay.classList.remove("show"); }
+
+$("settings-close").addEventListener("click", closeSettings);
+settingsOverlay.addEventListener("click", (e) => { if (e.target === settingsOverlay) closeSettings(); });
+
+// --- Cambio de pestañas ---
+document.querySelectorAll(".settings-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".settings-tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const pane = tab.dataset.tab;
+    document.querySelectorAll(".settings-pane").forEach((p) => {
+      p.style.display = p.dataset.pane === pane ? "block" : "none";
+    });
+  });
+});
+
+// --- Cargar datos en los formularios ---
+function loadSettingsData() {
+  if (!currentUser) return;
+  // Profile
+  const avatarLg = $("profile-avatar-lg");
+  if (currentUser.picture) {
+    avatarLg.innerHTML = `<img src="${currentUser.picture}" alt="" referrerpolicy="no-referrer"/>`;
+  } else {
+    const initials = (currentUser.name || "?").split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+    avatarLg.innerHTML = `<span class="initials">${escapeHTML(initials)}</span>`;
+  }
+  $("profile-name").textContent = currentUser.name || "—";
+  $("profile-email").textContent = currentUser.email || "—";
+  $("profile-display-name").value = currentUser.displayName || currentUser.name || "";
+  $("profile-email-input").value = currentUser.email || "";
+
+  // Provider badge
+  const provEl = $("profile-provider");
+  if (currentUser.provider === "demo") {
+    provEl.innerHTML = `<span style="color:var(--warn)">●</span> Modo demo`;
+  }
+
+  // Si no es Google, ocultar el aviso de password
+  const pwNotice = $("password-google-notice");
+  if (currentUser.provider !== "google") {
+    pwNotice.style.display = "none";
+  }
+
+  // Organization
+  $("org-name").value = currentUser.organization || "";
+
+  // Referrals
+  const baseUrl = window.location.origin + window.location.pathname;
+  const refCode = btoa(currentUser.id).replace(/=/g, "").slice(0, 10);
+  $("referral-link").textContent = `${baseUrl}?r=${refCode}`;
+}
+
+// --- Guardar perfil ---
+$("save-profile").addEventListener("click", async () => {
+  if (!currentUser) return;
+  currentUser.displayName = $("profile-display-name").value.trim() || currentUser.name;
+  await saveUser();
+  showToast("Perfil actualizado", "success");
+});
+
+// --- Guardar organización ---
+$("save-org").addEventListener("click", async () => {
+  if (!currentUser) return;
+  currentUser.organization = $("org-name").value.trim();
+  await saveUser();
+  showToast("Organización actualizada", "success");
+});
+
+// --- Copiar enlace de referido ---
+$("copy-referral").addEventListener("click", async () => {
+  const link = $("referral-link").textContent;
+  try {
+    await navigator.clipboard.writeText(link);
+    const btn = $("copy-referral");
+    const orig = btn.textContent;
+    btn.textContent = "✓ Copiado";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove("copied"); }, 1800);
+  } catch (e) {
+    showToast("No se pudo copiar", "error");
+  }
+});
+
+// --- Sign out ---
+$("sign-out-btn").addEventListener("click", signOut);
+
+// ---------- Inicializar ----------
+(async function init() {
+  initRecognition();
+  await loadPlanAndUsage();
+  await loadUser();
+  tryInitGoogle();
+  const history = await getHistory();
+  renderHistory(history);
+  updateUIState();
+
+  // Comprobar permiso en background — si está concedido, no haremos modal nunca
+  const permState = await checkMicPermission();
+  if (permState === "denied") {
+    // Pre-cargar el modal apenas el usuario intente grabar
+    // (no lo mostramos al inicio para no agobiar)
+  }
+
+  // Comprobar entorno: si estamos en iframe, file:// o sin contexto seguro,
+  // avisamos al usuario con instrucciones específicas.
+  const restriction = detectRestriction();
+  if (restriction) {
+    showRestrictionNotice(restriction);
+  }
+})();
+</script>
+
+<!-- ============= MODAL PRICING ============= -->
+<div class="pricing-overlay" id="pricing-overlay">
+  <div class="pricing-container">
+    <button class="pricing-close" id="pricing-close" title="Cerrar">×</button>
+
+    <div class="pricing-header">
+      <div class="pricing-eyebrow">Planes</div>
+      <h2 class="pricing-title">Elige el plan que<br/>encaja contigo</h2>
+      <p class="pricing-subtitle">Sin tarjeta. Sin límites de prueba. Cancela cuando quieras.</p>
+
+      <div class="billing-toggle" role="tablist">
+        <button class="active" data-billing="monthly">Mensual</button>
+        <button data-billing="annual">
+          Anual
+          <span class="billing-save">−17%</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="plans-grid">
+
+      <!-- ===== BASIC ===== -->
+      <div class="plan" data-plan="basic">
+        <h3 class="plan-name">Basic</h3>
+        <p class="plan-tagline">Sin tarjeta. Sin límites de prueba.</p>
+
+        <div class="plan-price">
+          <span class="plan-price-amount">Free</span>
+        </div>
+        <div class="plan-price-note">Para siempre</div>
+
+        <button class="plan-cta" disabled>Plan actual</button>
+
+        <div class="plan-features-title">Incluye</div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> 2.000 palabras por semana</li>
+          <li><span class="check">✓</span> Uso en cualquier app</li>
+          <li><span class="check">✓</span> Auto-edición con IA</li>
+          <li><span class="check">✓</span> Modo agente</li>
+          <li><span class="check">✓</span> Almacenamiento local</li>
+        </ul>
+      </div>
+
+      <!-- ===== PRO (featured) ===== -->
+      <div class="plan featured" data-plan="pro">
+        <span class="plan-badge">Más popular</span>
+        <h3 class="plan-name">Pro</h3>
+        <p class="plan-tagline">Dictado ilimitado para profesionales.</p>
+
+        <div class="plan-price">
+          <span class="plan-price-currency">$</span>
+          <span class="plan-price-amount" data-price-monthly="20" data-price-annual="17">20</span>
+          <span class="plan-price-period">/mes</span>
+        </div>
+        <div class="plan-price-note" id="pro-note">Facturado mensualmente</div>
+
+        <button class="plan-cta primary" id="upgrade-pro">Mejorar a Pro</button>
+
+        <div class="plan-features-title">Todo lo de Basic, además</div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> Palabras ilimitadas</li>
+          <li><span class="check">✓</span> Procesamiento prioritario</li>
+          <li><span class="check">✓</span> Acceso anticipado a novedades</li>
+          <li><span class="check">✓</span> Soporte prioritario</li>
+        </ul>
+      </div>
+
+      <!-- ===== ENTERPRISE ===== -->
+      <div class="plan" data-plan="enterprise">
+        <h3 class="plan-name">Enterprise</h3>
+        <p class="plan-tagline">Para equipos que necesitan control total.</p>
+
+        <div class="plan-price">
+          <span class="plan-price-amount">A medida</span>
+        </div>
+        <div class="plan-price-note">Hablemos de tu caso</div>
+
+        <button class="plan-cta" id="contact-sales">Contactar ventas</button>
+
+        <div class="plan-features-title">Todo lo de Pro, además</div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> Miembros de equipo ilimitados</li>
+          <li><span class="check">✓</span> SSO y autenticación SAML</li>
+          <li><span class="check">✓</span> Procesamiento de datos dedicado</li>
+          <li><span class="check">✓</span> Acceso API e integraciones</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============= WORD-LIMIT WALL ============= -->
+<div class="word-wall" id="word-wall" role="alert">
+  <span class="iframe-notice-icon">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+  </span>
+  <div class="word-wall-content">
+    <div class="word-wall-title">Límite semanal alcanzado</div>
+    <div class="word-wall-text">Llegaste a las 2.000 palabras. Mejora a Pro para seguir dictando.</div>
+  </div>
+  <button class="btn btn-primary" id="wall-upgrade">Mejorar</button>
+</div>
+
+<!-- ============= AUTH MODAL (Sign in) ============= -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <button class="auth-close" id="auth-close" title="Cerrar">×</button>
+    <div class="auth-logo">
+      <svg viewBox="0 0 40 40" fill="currentColor">
+        <rect x="4"  y="20" width="4" height="12" rx="1.5"/>
+        <rect x="11" y="14" width="4" height="18" rx="1.5"/>
+        <rect x="18" y="6"  width="4" height="26" rx="1.5"/>
+        <rect x="25" y="14" width="4" height="18" rx="1.5"/>
+        <rect x="32" y="20" width="4" height="12" rx="1.5"/>
+      </svg>
+    </div>
+    <h2>Bienvenido a Audia</h2>
+    <p>Inicia sesión para sincronizar tu historial, mantener tu plan y acceder desde cualquier dispositivo.</p>
+
+    <button class="google-btn" id="google-signin-btn">
+      <svg viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Continuar con Google
+    </button>
+
+    <div class="auth-divider">o</div>
+
+    <button class="demo-btn" id="demo-signin-btn">Probar en modo demo</button>
+
+    <div class="auth-footnote">
+      Al continuar aceptas los <a href="#" onclick="return false">Términos</a> y la <a href="#" onclick="return false">Política de privacidad</a>.
+    </div>
+  </div>
+</div>
+
+<!-- ============= SETTINGS PANEL ============= -->
+<div class="settings-overlay" id="settings-overlay">
+  <div class="settings-container">
+    <button class="settings-close" id="settings-close" title="Cerrar">×</button>
+
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <p>Manage your account</p>
+    </div>
+
+    <div class="settings-tabs" role="tablist">
+      <button class="settings-tab active" data-tab="profile">Profile</button>
+      <button class="settings-tab" data-tab="password">Password</button>
+      <button class="settings-tab" data-tab="organization">Organization</button>
+      <button class="settings-tab" data-tab="referrals">Referrals</button>
+    </div>
+
+    <!-- TAB: PROFILE -->
+    <div class="settings-card settings-pane" data-pane="profile">
+      <h3>Profile</h3>
+      <p class="card-sub">Your personal information</p>
+
+      <div class="profile-row">
+        <div class="profile-avatar-lg" id="profile-avatar-lg">
+          <span class="initials">A</span>
+        </div>
+        <div class="profile-row-meta">
+          <div class="name" id="profile-name">—</div>
+          <div class="email" id="profile-email">—</div>
+          <div class="provider" id="profile-provider">
+            <svg width="11" height="11" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Conectado con Google
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="profile-display-name">Display name</label>
+        <input type="text" id="profile-display-name" placeholder="Tu nombre" />
+      </div>
+
+      <div class="field">
+        <label for="profile-email-input">Email</label>
+        <input type="email" id="profile-email-input" disabled />
+        <div class="help">El email proviene de tu cuenta de Google y no se puede editar.</div>
+      </div>
+
+      <button class="btn-update" id="save-profile">Update profile</button>
+      <hr/>
+      <button class="btn-danger-outline" id="sign-out-btn">Cerrar sesión</button>
+    </div>
+
+    <!-- TAB: PASSWORD -->
+    <div class="settings-card settings-pane" data-pane="password" style="display:none">
+      <h3>Password</h3>
+      <p class="card-sub">Manage your password</p>
+
+      <div id="password-google-notice" style="background:var(--bg); border:1px solid var(--border-bright); border-radius:10px; padding:18px;">
+        <div style="font-family:var(--mono); font-size:13px; color:var(--text); margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Iniciaste sesión con Google
+        </div>
+        <div style="font-family:var(--mono); font-size:12px; color:var(--text-dim); line-height:1.6;">
+          Tu cuenta usa autenticación de Google, así que no hay contraseña que gestionar aquí. Para cambiar tu contraseña, hazlo desde <a href="https://myaccount.google.com/security" target="_blank" style="color:var(--accent)">tu cuenta de Google</a>.
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ORGANIZATION -->
+    <div class="settings-card settings-pane" data-pane="organization" style="display:none">
+      <h3>Organization</h3>
+      <p class="card-sub">Your team information</p>
+
+      <div class="field">
+        <label for="org-name">Organization name</label>
+        <input type="text" id="org-name" placeholder="Mi organización" />
+        <div class="help">Enter your organization's display name.</div>
+      </div>
+
+      <button class="btn-update" id="save-org">Update organization name</button>
+
+      <hr/>
+      <h3 style="margin-top:0">Team members</h3>
+      <p class="card-sub">Available on Pro and Enterprise plans.</p>
+      <button class="btn-update" id="invite-member" disabled style="opacity:0.5">Invitar miembros (Pro)</button>
+    </div>
+
+    <!-- TAB: REFERRALS -->
+    <div class="settings-card settings-pane" data-pane="referrals" style="display:none">
+      <h3>Referrals</h3>
+      <p class="card-sub">Comparte Audia con amigos y consigue un mes Pro gratis por cada referido</p>
+
+      <div class="field">
+        <label>Tu enlace de referido</label>
+        <div class="referral-code-box">
+          <code id="referral-link">https://audia.app/?r=cargando...</code>
+          <button class="cmd-copy" id="copy-referral">Copiar</button>
+        </div>
+      </div>
+
+      <div class="referral-stats">
+        <div class="referral-stat">
+          <div class="num" id="ref-clicks">0</div>
+          <div class="lbl">Clics</div>
+        </div>
+        <div class="referral-stat">
+          <div class="num" id="ref-signups">0</div>
+          <div class="lbl">Registros</div>
+        </div>
+        <div class="referral-stat">
+          <div class="num" id="ref-rewards">0</div>
+          <div class="lbl">Meses Pro</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

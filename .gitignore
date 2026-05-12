@@ -1,0 +1,21 @@
+# Vercel
+.vercel
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Node (por si añades dependencias luego)
+node_modules/
