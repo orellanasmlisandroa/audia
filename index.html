@@ -2175,63 +2175,33 @@ function initRecognition() {
   };
 }
 
-// ---------- Web Audio para animación de niveles ----------
-async function startAudioVisualizer() {
-  // Limpiar cualquier instancia previa antes de crear una nueva.
-  // Sin esto, un stream que falló o quedó vivo bloquea getUserMedia.
+// ---------- Simulación de visualizador para evitar bloqueo de micrófono en Windows ----------
+function startAudioVisualizer() {
   stopAudioVisualizer();
-
-  try {
-    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64;
-    const source = audioCtx.createMediaStreamSource(audioStream);
-    source.connect(analyser);
-    levelsEl.classList.add("active");
-    drawLevels();
-  } catch (e) {
-    // Si el permiso fue denegado en getUserMedia, mostramos el modal.
-    // La transcripción puede seguir funcionando si recognition ya tenía permiso previo,
-    // pero generalmente ambos fallan juntos.
-    if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) {
-      showMicModal();
-    }
-    // En cualquier caso, mostramos las barras inertes para no romper el layout.
-    levelsEl.classList.add("active");
-  }
-}
-
-function drawLevels() {
-  if (!analyser) return;
-  const data = new Uint8Array(analyser.frequencyBinCount);
+  levelsEl.classList.add("active");
   const bars = levelsEl.querySelectorAll(".bar");
-
+  
   const loop = () => {
-    analyser.getByteFrequencyData(data);
-    bars.forEach((bar, i) => {
-      const idx = Math.floor((i / bars.length) * data.length);
-      const v = data[idx] / 255;
-      const h = 4 + v * 36;
+    if (!isRecording) return;
+    bars.forEach((bar) => {
+      // Altura aleatoria suave para simular voz
+      const v = Math.random();
+      const h = 4 + (v * v * 28); 
       bar.style.height = `${h}px`;
     });
-    animationFrame = requestAnimationFrame(loop);
+    // Actualizar cada 80ms para un efecto fluido pero no frenético
+    animationFrame = setTimeout(() => {
+      if (isRecording) requestAnimationFrame(loop);
+    }, 80);
   };
   loop();
 }
 
 function stopAudioVisualizer() {
   if (animationFrame) {
-    cancelAnimationFrame(animationFrame);
+    clearTimeout(animationFrame);
     animationFrame = null;
   }
-  if (audioStream) {
-    try { audioStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
-  }
-  if (audioCtx && audioCtx.state !== "closed") {
-    try { audioCtx.close(); } catch (e) {}
-  }
-  audioStream = null; audioCtx = null; analyser = null;
   levelsEl.classList.remove("active");
   levelsEl.querySelectorAll(".bar").forEach((b) => (b.style.height = "4px"));
 }
@@ -2795,7 +2765,7 @@ $("wall-upgrade").addEventListener("click", () => {
 // ⚠️ CONFIGURACIÓN: pega aquí tu Google OAuth Client ID
 // Obtén el tuyo en: https://console.cloud.google.com/apis/credentials
 // Mientras esté vacío, el botón de Google muestra un mensaje y se usa el modo demo.
-const GOOGLE_CLIENT_ID = ""; // ej. "1234567890-abc.apps.googleusercontent.com"
+const GOOGLE_CLIENT_ID = "930592198206-ckel4iu3nk3fetto3ifm6031ld92ht24.apps.googleusercontent.com"; // ej. "1234567890-abc.apps.googleusercontent.com"
 
 let currentUser = null;
 // Estructura: { id, name, email, picture, provider: "google"|"demo", organization?, displayName? }
