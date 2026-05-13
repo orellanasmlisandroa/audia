@@ -2001,6 +2001,12 @@ let analyser = null;
 let audioStream = null;
 let animationFrame = null;
 
+// Detección de dispositivo
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const isAndroidChrome = /Android/i.test(navigator.userAgent) && /Chrome/i.test(navigator.userAgent);
+const hasSpeechAPI = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
 const LANGUAGES = [
   { code: "es-ES", label: "ES" },
   { code: "en-US", label: "EN" },
@@ -2108,13 +2114,17 @@ let recognitionStartTime = 0;
 function initRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    showToast("Tu navegador no soporta Web Speech API. Usa Chrome o Edge.", "error");
+    if (isMobile) {
+      showToast("Usá Chrome en Android para dictar. En iPhone usa Safari.", "error");
+    } else {
+      showToast("Tu navegador no soporta dictado. Usá Chrome o Edge.", "error");
+    }
     micBtn.disabled = true;
     return;
   }
   recognition = new SR();
   recognition.continuous = false;
-  recognition.interimResults = true;
+  recognition.interimResults = !isIOS; // iOS no soporta bien interimResults
   recognition.maxAlternatives = 1;
   recognition.lang = currentLang;
 
@@ -2191,6 +2201,12 @@ function initRecognition() {
     if (noResultTimer) { clearTimeout(noResultTimer); noResultTimer = null; }
     console.log('[Audia] onend isRecording=' + isRecording + ' dur=' + (Date.now() - recognitionStartTime) + 'ms');
     if (isRecording) {
+      // iOS no permite auto-restart desde setTimeout → pedir tap manual
+      if (isIOS) {
+        hintEl.innerHTML = '<span class="rec">Toca el micrófono para continuar</span>';
+        stopRecording();
+        return;
+      }
       const dur = Date.now() - recognitionStartTime;
       if (dur < 800) {
         rapidEndCount++;
