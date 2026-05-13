@@ -3005,18 +3005,16 @@ function renderAvatar() {
 }
 
 // --- Abrir/cerrar Auth modal ---
-function openAuth() { authOverlay.classList.add("show"); }
-function closeAuth() { authOverlay.classList.remove("show"); }
-
-// --- Clic en avatar: abrir auth o settings ---
-// (userAvatar está en el HTML antes del script, se puede registrar aquí)
-userAvatar.addEventListener("click", () => {
-  if (currentUser) {
-    openSettings();
-  } else {
-    openAuth();
-  }
-});
+function openAuth() {
+  if (!authOverlay) authOverlay = $("auth-overlay");
+  if (!authOverlay) return;
+  authOverlay.classList.add("show");
+}
+function closeAuth() {
+  if (!authOverlay) authOverlay = $("auth-overlay");
+  if (!authOverlay) return;
+  authOverlay.classList.remove("show");
+}
 
 // ============================================================
 //                    SETTINGS PANEL
@@ -3024,10 +3022,16 @@ userAvatar.addEventListener("click", () => {
 
 function openSettings() {
   if (!currentUser) { openAuth(); return; }
+  if (!settingsOverlay) settingsOverlay = $("settings-overlay");
+  if (!settingsOverlay) return;
   loadSettingsData();
   settingsOverlay.classList.add("show");
 }
-function closeSettings() { settingsOverlay.classList.remove("show"); }
+function closeSettings() {
+  if (!settingsOverlay) settingsOverlay = $("settings-overlay");
+  if (!settingsOverlay) return;
+  settingsOverlay.classList.remove("show");
+}
 
 
 // --- Cargar datos en los formularios ---
@@ -3072,6 +3076,11 @@ function loadSettingsData() {
 document.addEventListener("DOMContentLoaded", () => {
   authOverlay = $("auth-overlay");
   settingsOverlay = $("settings-overlay");
+
+  // Clic en avatar: abrir auth o perfil
+  userAvatar?.addEventListener("click", () => {
+    if (currentUser) { openSettings(); } else { openAuth(); }
+  });
 
   // Auth modal
   $("auth-close")?.addEventListener("click", closeAuth);
