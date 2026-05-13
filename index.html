@@ -2844,8 +2844,8 @@ const GOOGLE_CLIENT_ID = "930592198206-ckel4iu3nk3fetto3ifm6031ld92ht24.apps.goo
 let currentUser = null;
 // Estructura: { id, name, email, picture, provider: "google"|"demo", organization?, displayName? }
 
-const authOverlay = $("auth-overlay");
-const settingsOverlay = $("settings-overlay");
+let authOverlay = null;
+let settingsOverlay = null;
 const userAvatar = $("user-avatar");
 const avatarContent = $("avatar-content");
 
@@ -3008,12 +3008,8 @@ function renderAvatar() {
 function openAuth() { authOverlay.classList.add("show"); }
 function closeAuth() { authOverlay.classList.remove("show"); }
 
-$("auth-close").addEventListener("click", closeAuth);
-authOverlay.addEventListener("click", (e) => { if (e.target === authOverlay) closeAuth(); });
-$("google-signin-btn").addEventListener("click", signInWithGoogle);
-$("demo-signin-btn").addEventListener("click", signInDemo);
-
 // --- Clic en avatar: abrir auth o settings ---
+// (userAvatar está en el HTML antes del script, se puede registrar aquí)
 userAvatar.addEventListener("click", () => {
   if (currentUser) {
     openSettings();
@@ -3033,20 +3029,6 @@ function openSettings() {
 }
 function closeSettings() { settingsOverlay.classList.remove("show"); }
 
-$("settings-close").addEventListener("click", closeSettings);
-settingsOverlay.addEventListener("click", (e) => { if (e.target === settingsOverlay) closeSettings(); });
-
-// --- Cambio de pestañas ---
-document.querySelectorAll(".settings-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".settings-tab").forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-    const pane = tab.dataset.tab;
-    document.querySelectorAll(".settings-pane").forEach((p) => {
-      p.style.display = p.dataset.pane === pane ? "block" : "none";
-    });
-  });
-});
 
 // --- Cargar datos en los formularios ---
 function loadSettingsData() {
@@ -3085,39 +3067,63 @@ function loadSettingsData() {
   $("referral-link").textContent = `${baseUrl}?r=${refCode}`;
 }
 
-// --- Guardar perfil ---
-$("save-profile").addEventListener("click", async () => {
-  if (!currentUser) return;
-  currentUser.displayName = $("profile-display-name").value.trim() || currentUser.name;
-  await saveUser();
-  showToast("Perfil actualizado", "success");
-});
+// Los modales de auth y settings están en el HTML DESPUÉS del script,
+// por eso se inicializan en DOMContentLoaded (cuando todo el HTML ya existe).
+document.addEventListener("DOMContentLoaded", () => {
+  authOverlay = $("auth-overlay");
+  settingsOverlay = $("settings-overlay");
 
-// --- Guardar organización ---
-$("save-org").addEventListener("click", async () => {
-  if (!currentUser) return;
-  currentUser.organization = $("org-name").value.trim();
-  await saveUser();
-  showToast("Organización actualizada", "success");
-});
+  // Auth modal
+  $("auth-close")?.addEventListener("click", closeAuth);
+  authOverlay?.addEventListener("click", (e) => { if (e.target === authOverlay) closeAuth(); });
+  $("google-signin-btn")?.addEventListener("click", signInWithGoogle);
+  $("demo-signin-btn")?.addEventListener("click", signInDemo);
 
-// --- Copiar enlace de referido ---
-$("copy-referral").addEventListener("click", async () => {
-  const link = $("referral-link").textContent;
-  try {
-    await navigator.clipboard.writeText(link);
-    const btn = $("copy-referral");
-    const orig = btn.textContent;
-    btn.textContent = "✓ Copiado";
-    btn.classList.add("copied");
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove("copied"); }, 1800);
-  } catch (e) {
-    showToast("No se pudo copiar", "error");
-  }
-});
+  // Settings
+  $("settings-close")?.addEventListener("click", closeSettings);
+  settingsOverlay?.addEventListener("click", (e) => { if (e.target === settingsOverlay) closeSettings(); });
 
-// --- Sign out ---
-$("sign-out-btn").addEventListener("click", signOut);
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".settings-tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      const pane = tab.dataset.tab;
+      document.querySelectorAll(".settings-pane").forEach((p) => {
+        p.style.display = p.dataset.pane === pane ? "block" : "none";
+      });
+    });
+  });
+
+  $("save-profile")?.addEventListener("click", async () => {
+    if (!currentUser) return;
+    currentUser.displayName = $("profile-display-name").value.trim() || currentUser.name;
+    await saveUser();
+    showToast("Perfil actualizado", "success");
+  });
+
+  $("save-org")?.addEventListener("click", async () => {
+    if (!currentUser) return;
+    currentUser.organization = $("org-name").value.trim();
+    await saveUser();
+    showToast("Organización actualizada", "success");
+  });
+
+  $("copy-referral")?.addEventListener("click", async () => {
+    const link = $("referral-link").textContent;
+    try {
+      await navigator.clipboard.writeText(link);
+      const btn = $("copy-referral");
+      const orig = btn.textContent;
+      btn.textContent = "✓ Copiado";
+      btn.classList.add("copied");
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove("copied"); }, 1800);
+    } catch (e) {
+      showToast("No se pudo copiar", "error");
+    }
+  });
+
+  $("sign-out-btn")?.addEventListener("click", signOut);
+});
 
 // ---------- Inicializar ----------
 (async function init() {
