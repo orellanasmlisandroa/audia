@@ -2768,15 +2768,27 @@ function canSend() {
 //                    MODAL DE PRICING
 // ============================================================
 
-const pricingOverlay = $("pricing-overlay");
+let pricingOverlay = null;
 
-function openPricing() { pricingOverlay.classList.add("show"); }
-function closePricing() { pricingOverlay.classList.remove("show"); }
+function openPricing() {
+  if (!pricingOverlay) pricingOverlay = $("pricing-overlay");
+  if (!pricingOverlay) return;
+  pricingOverlay.classList.add("show");
+}
+function closePricing() {
+  if (!pricingOverlay) pricingOverlay = $("pricing-overlay");
+  if (!pricingOverlay) return;
+  pricingOverlay.classList.remove("show");
+}
 
-$("open-pricing").addEventListener("click", openPricing);
-$("pricing-close").addEventListener("click", closePricing);
-pricingOverlay.addEventListener("click", (e) => {
-  if (e.target === pricingOverlay) closePricing();
+// pricing-overlay y pricing-close están después del script → DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
+  pricingOverlay = $("pricing-overlay");
+  $("open-pricing")?.addEventListener("click", openPricing);
+  $("pricing-close")?.addEventListener("click", closePricing);
+  pricingOverlay?.addEventListener("click", (e) => {
+    if (e.target === pricingOverlay) closePricing();
+  });
 });
 
 // Toggle mensual/anual
