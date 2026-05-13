@@ -1844,6 +1844,7 @@
         <button class="prov-chip" data-provider="gemini">Gemini</button>
         <button class="prov-chip" data-provider="perplexity">Perplexity</button>
         <button class="prov-chip" data-provider="grok">Grok</button>
+        <button class="prov-chip" data-provider="copilot">Copilot</button>
         <button class="prov-chip" data-provider="antigravity">Antigravity</button>
       </div>
 
@@ -1974,6 +1975,7 @@ const PROVIDERS = {
   gemini:     { name: "Gemini",     url: (t) => `https://gemini.google.com/app?q=${encodeURIComponent(t)}` },
   perplexity: { name: "Perplexity", url: (t) => `https://www.perplexity.ai/search?q=${encodeURIComponent(t)}` },
   grok:       { name: "Grok",       url: (t) => `https://grok.com/?q=${encodeURIComponent(t)}` },
+  copilot:    { name: "Copilot",    url: (t) => `https://copilot.microsoft.com/?q=${encodeURIComponent(t)}` },
   antigravity:{ name: "Antigravity", copyOnly: true, url: () => null },
 };
 
@@ -2111,7 +2113,7 @@ function initRecognition() {
     return;
   }
   recognition = new SR();
-  recognition.continuous = true;
+  recognition.continuous = false;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
   recognition.lang = currentLang;
@@ -2217,7 +2219,7 @@ function initRecognition() {
             }
           }
         }
-      }, 150);
+      }, 300);
     }
   };
 }
