@@ -1844,6 +1844,7 @@
         <button class="prov-chip" data-provider="gemini">Gemini</button>
         <button class="prov-chip" data-provider="perplexity">Perplexity</button>
         <button class="prov-chip" data-provider="grok">Grok</button>
+        <button class="prov-chip" data-provider="antigravity">Antigravity</button>
       </div>
 
       <div class="spacer"></div>
@@ -1900,7 +1901,7 @@
         <code id="cmd-node">npx serve .</code>
         <button class="cmd-copy" data-cmd="npx serve .">Copiar</button>
       </div>
-      <div class="cmd-hint">Luego abre <code>http://localhost:8000/audia_voicebridge.html</code></div>
+      <div class="cmd-hint">Luego abre <code>http://localhost:3000/</code></div>
     </div>
   </div>
   <button class="iframe-notice-close" id="iframe-notice-close" title="Cerrar">×</button>
@@ -1973,6 +1974,7 @@ const PROVIDERS = {
   gemini:     { name: "Gemini",     url: (t) => `https://gemini.google.com/app?q=${encodeURIComponent(t)}` },
   perplexity: { name: "Perplexity", url: (t) => `https://www.perplexity.ai/search?q=${encodeURIComponent(t)}` },
   grok:       { name: "Grok",       url: (t) => `https://grok.com/?q=${encodeURIComponent(t)}` },
+  antigravity:{ name: "Antigravity", copyOnly: true, url: () => null },
 };
 
 const QUICK_TARGETS = {
@@ -2096,6 +2098,11 @@ function detectRestriction() {
 }
 
 // ---------- Inicializar Speech Recognition ----------
+let noSpeechCount = 0;
+let noResultTimer = null;
+let rapidEndCount = 0;
+let recognitionStartTime = 0;
+
 function initRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
@@ -2106,13 +2113,29 @@ function initRecognition() {
   recognition = new SR();
   recognition.continuous = true;
   recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
   recognition.lang = currentLang;
 
   recognition.onstart = () => {
+    noSpeechCount = 0;
+    recognitionStartTime = Date.now();
     startAudioVisualizer();
+    hintEl.innerHTML = '<span class="rec">Escuchando... habla ahora</span>';
+    console.log('[Audia] onstart lang=' + currentLang);
+    if (noResultTimer) clearTimeout(noResultTimer);
+    noResultTimer = setTimeout(() => {
+      if (isRecording) {
+        console.log('[Audia] 5s sin resultados - posible problema de red o micrófono');
+        hintEl.innerHTML = '<span class="rec">Sin respuesta · ¿Hay internet? ¿Mic correcto en Windows?</span>';
+      }
+    }, 5000);
   };
 
   recognition.onresult = (event) => {
+    if (noResultTimer) { clearTimeout(noResultTimer); noResultTimer = null; }
+    noSpeechCount = 0;
+    rapidEndCount = 0;
+    console.log('[Audia] onresult:', event.results[event.resultIndex][0].transcript);
     interimTranscript = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const text = event.results[i][0].transcript;
@@ -2123,8 +2146,8 @@ function initRecognition() {
       }
     }
     updateTranscriptDisplay();
+    hintEl.innerHTML = '<span class="rec">Grabando...</span>';
 
-    // Reset silencio para modo rápido
     if (fastMode) {
       if (silenceTimer) clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
@@ -2137,33 +2160,57 @@ function initRecognition() {
   };
 
   recognition.onerror = (e) => {
-    if (e.error === "no-speech") return;
+    if (noResultTimer) { clearTimeout(noResultTimer); noResultTimer = null; }
+    console.log('[Audia] onerror:', e.error);
+    if (e.error === "no-speech") {
+      noSpeechCount++;
+      if (noSpeechCount === 2) {
+        hintEl.innerHTML = '<span class="rec">No te escucho · habla más fuerte</span>';
+      } else if (noSpeechCount >= 4) {
+        stopRecording();
+        showToast("No se detecta voz. Verifica el micrófono en Windows.", "error");
+        hintEl.innerHTML = "Verifica que el micrófono esté seleccionado como predeterminado en Windows";
+      }
+      return;
+    }
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
       showMicModal();
     } else if (e.error === "audio-capture") {
       showToast("No se detecta micrófono en tu dispositivo", "error");
     } else if (e.error === "network") {
-      showToast("Error de red en el servicio de voz", "error");
+      showToast("Sin conexión al servicio de voz · Chrome necesita internet para transcribir", "error");
     } else {
-      showToast(`Error: ${e.error}`, "error");
+      showToast(`Error de reconocimiento: ${e.error}`, "error");
     }
     stopRecording();
   };
 
   recognition.onend = () => {
-    // Si seguimos en modo grabación, reiniciar (manejo de timeout silenciosamente)
+    if (noResultTimer) { clearTimeout(noResultTimer); noResultTimer = null; }
+    console.log('[Audia] onend isRecording=' + isRecording + ' dur=' + (Date.now() - recognitionStartTime) + 'ms');
     if (isRecording) {
-      // Delay corto para evitar InvalidStateError al reiniciar demasiado rápido
+      const dur = Date.now() - recognitionStartTime;
+      if (dur < 800) {
+        rapidEndCount++;
+        if (rapidEndCount >= 5) {
+          stopRecording();
+          showToast('El servicio de voz se cae · verifica internet o recarga (F5)', 'error');
+          hintEl.innerHTML = 'Recarga la página (F5) e intenta de nuevo';
+          return;
+        }
+      } else {
+        rapidEndCount = 0;
+      }
       setTimeout(() => {
         if (isRecording && recognition) {
-          try { recognition.start(); } catch (err) {
-            console.warn('Reinicio de recognition falló, recreando instancia...', err);
-            // Recrear la instancia si start() falla
+          try {
+            recognition.start();
+          } catch (err) {
+            console.log('[Audia] Error al reiniciar:', err.message);
             recognition = null;
             initRecognition();
             if (recognition) {
               try { recognition.start(); } catch (e2) {
-                console.error('No se pudo reiniciar recognition:', e2);
                 stopRecording();
                 showToast('Error al reiniciar la grabación', 'error');
               }
@@ -2227,8 +2274,8 @@ async function startRecording() {
     isRecording = true;
     micBtn.classList.add("recording");
     transcriptCard.classList.add("active");
-    hintEl.innerHTML = '<span class="rec">Grabando...</span>';
-    // startAudioVisualizer() se llama ahora desde recognition.onstart para evitar conflictos de hardware
+    hintEl.innerHTML = '<span class="rec">Iniciando micrófono...</span>';
+    // startAudioVisualizer() se llama desde recognition.onstart para evitar conflictos de hardware
   } catch (e) {
     // Errores síncronos: InvalidStateError (recognition ya activa) o NotAllowedError
     if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) {
@@ -2247,6 +2294,7 @@ async function startRecording() {
 function stopRecording() {
   if (!recognition) return;
   isRecording = false;
+  if (noResultTimer) { clearTimeout(noResultTimer); noResultTimer = null; }
   try { recognition.stop(); } catch (e) {}
   micBtn.classList.remove("recording");
   transcriptCard.classList.remove("active");
@@ -2296,14 +2344,22 @@ async function sendToAI() {
   const prov = PROVIDERS[currentProvider];
   if (!prov) return;
 
-  // Copiar al portapapeles como fallback
+  // Copiar al portapapeles
   try {
     await navigator.clipboard.writeText(text);
-  } catch (e) {}
+  } catch (e) {
+    showToast("No se pudo copiar al portapapeles", "error");
+    return;
+  }
 
-  // Abrir en pestaña nueva con texto pre-cargado
-  window.open(prov.url(text), "_blank", "noopener,noreferrer");
-  showToast(`Enviado a ${prov.name} (texto copiado al portapapeles)`, "success");
+  if (prov.copyOnly) {
+    // Solo copiar — el usuario pega manualmente en su sesión activa
+    showToast(`Texto copiado · pégalo en ${prov.name}`, "success");
+  } else {
+    // Abrir en pestaña nueva con texto pre-cargado
+    window.open(prov.url(text), "_blank", "noopener,noreferrer");
+    showToast(`Enviado a ${prov.name} (texto copiado al portapapeles)`, "success");
+  }
 
   // Contabilizar palabras para el plan Basic
   await trackWords(text);
